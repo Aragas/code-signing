@@ -3,7 +3,7 @@
     "Aragas"
   ],
   "certificate": {
-    "sha1": "",
+    "sha1": "82C94AFDD2729104DA7E2871D2531E334FB8698B",
     "totpAlgorithm": "SHA-256"
   },
   "repositories": {

@@ -148,8 +148,8 @@ To enable signing for a new or existing repository:
        uses: BUTR/workflows/.github/workflows/sign-certum.yml@master
        with:
          artifact_name: bannerlord
-         client_id: ${{ vars.CODE_SIGNING_CLIENT_ID }}
        secrets:
+         CODE_SIGNING_CLIENT_ID: ${{ secrets.CODE_SIGNING_CLIENT_ID }}
          CODE_SIGNING_PRIVATE_KEY: ${{ secrets.CODE_SIGNING_PRIVATE_KEY }}
    ```
 
