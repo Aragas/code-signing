@@ -1,0 +1,226 @@
+name: Sign
+run-name: Sign ${{ inputs.repository }} run ${{ inputs.run_id }} [${{ inputs.request_id }}]
+
+# Signs an artifact from an external repository's workflow run using Certum Code Signing in the Cloud.
+# Triggered by BUTR/workflows' sign-certum.yml (see README.md).
+#
+# Security model:
+# All caller-provided inputs are treated as untrusted metadata. The 'verify' job queries GitHub
+# directly to confirm that the run meets all criteria configured in config.json and was approved
+# by an authorized user. Only after verification succeeds does the 'sign' job execute within the
+# protected environment containing the Certum signing credentials.
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Target repository requesting code signing (owner/repo format)'
+        required: true
+        type: string
+      run_id:
+        description: 'Workflow run ID containing the artifact to sign'
+        required: true
+        type: string
+      artifact_name:
+        description: 'Name of the artifact containing files to sign'
+        required: true
+        type: string
+      request_id:
+        description: 'Correlation ID allowing the requester to track this run'
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  verify:
+    name: Verify signing request
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      repository: ${{ steps.verify.outputs.repository }}
+      repository_owner: ${{ steps.verify.outputs.repository_owner }}
+      repository_name: ${{ steps.verify.outputs.repository_name }}
+      artifact_id: ${{ steps.verify.outputs.artifact_id }}
+      files: ${{ steps.verify.outputs.files }}
+      cert_sha1: ${{ steps.verify.outputs.cert_sha1 }}
+      totp_algorithm: ${{ steps.verify.outputs.totp_algorithm }}
+    steps:
+
+    # Workflow dispatches can specify arbitrary branches; only the protected default branch is trusted.
+    - name: Verify running on default branch
+      shell: pwsh
+      env:
+        REF: ${{ github.ref }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      run: |
+        if ($env:REF -ne "refs/heads/$env:DEFAULT_BRANCH") {
+          Write-Error "Signing requests must run from the default branch ($env:DEFAULT_BRANCH), not from $env:REF."
+          exit 1
+        }
+
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    # Verify that the target repository is registered before requesting an installation token.
+    - name: Validate target repository in configuration
+      id: listed
+      shell: pwsh
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+      run: |
+        $config = Get-Content -Path ./config.json -Raw | ConvertFrom-Json
+        $listed = $config.repositories.PSObject.Properties.Name | Where-Object { $_ -ieq $env:REPOSITORY } | Select-Object -First 1
+        if (-not $listed -or $listed -notmatch '^([A-Za-z0-9-]+)/([A-Za-z0-9._-]+)$') {
+          Write-Error "Signing denied: repository '$env:REPOSITORY' is not listed in config.json."
+          exit 1
+        }
+        "owner=$($Matches[1])" >> $env:GITHUB_OUTPUT
+        "name=$($Matches[2])" >> $env:GITHUB_OUTPUT
+
+    - name: Generate GitHub App token for target repository
+      id: token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        client-id: ${{ vars.VERIFIER_CLIENT_ID }}
+        private-key: ${{ secrets.VERIFIER_PRIVATE_KEY }}
+        owner: ${{ steps.listed.outputs.owner }}
+        repositories: ${{ steps.listed.outputs.name }}
+        permission-actions: read
+        permission-contents: read
+        permission-pull-requests: read
+
+    - name: Validate signing request requirements
+      id: verify
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ steps.token.outputs.token }}
+        REPOSITORY: ${{ inputs.repository }}
+        RUN_ID: ${{ inputs.run_id }}
+        ARTIFACT_NAME: ${{ inputs.artifact_name }}
+      run: |
+        ./scripts/Test-SigningRequest.ps1 -Repository $env:REPOSITORY -RunId $env:RUN_ID -ArtifactName $env:ARTIFACT_NAME -ConfigPath ./config.json
+
+  sign:
+    name: Sign artifacts
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # Holds Certum secrets and deploys exclusively from protected branches.
+    environment:
+      name: Code Signing
+    # Each TOTP code can only be used once; concurrency ensures one active signing operation at a time.
+    concurrency:
+      group: certum-code-signing
+      cancel-in-progress: false
+    permissions: {}
+    steps:
+
+    - name: Validate signing secrets
+      shell: pwsh
+      env:
+        HAS_USERNAME: ${{ secrets.CERTUM_USERNAME != '' }}
+        HAS_TOTP_SECRET: ${{ secrets.CERTUM_TOTP_SECRET != '' }}
+      run: |
+        if ($env:HAS_USERNAME -ne 'true' -or $env:HAS_TOTP_SECRET -ne 'true') {
+          Write-Error "Missing required secrets: please configure CERTUM_USERNAME and CERTUM_TOTP_SECRET in the 'Code Signing' environment."
+          exit 1
+        }
+
+    - name: Generate GitHub App token for artifact download
+      id: token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        client-id: ${{ vars.VERIFIER_CLIENT_ID }}
+        private-key: ${{ secrets.VERIFIER_PRIVATE_KEY }}
+        owner: ${{ needs.verify.outputs.repository_owner }}
+        repositories: ${{ needs.verify.outputs.repository_name }}
+        permission-actions: read
+
+    # Download by artifact ID. GitHub verifies content integrity against its recorded digest.
+    - name: Download verified artifact
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        artifact-ids: ${{ needs.verify.outputs.artifact_id }}
+        repository: ${{ needs.verify.outputs.repository }}
+        run-id: ${{ inputs.run_id }}
+        github-token: ${{ steps.token.outputs.token }}
+        path: ./artifact
+
+    - name: Checkout signing scripts
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        path: code-signing
+        persist-credentials: false
+
+    # Discovers matching binaries and extracts embedded files from NuGet packages.
+    - name: Discover and extract files to sign
+      id: files
+      shell: pwsh
+      env:
+        FILES: ${{ needs.verify.outputs.files }}
+      run: |
+        ./code-signing/scripts/Expand-SigningFiles.ps1 -Root ./artifact -PatternsJson $env:FILES -WorkFolder (Join-Path $env:RUNNER_TEMP 'signing')
+
+    - name: Authenticate with SimplySign
+      id: certum
+      # Pinned to a specific commit hash for supply chain security; review upstream changes before bumping.
+      uses: jay0lee/certum-cloud-code-sign@a3324503499c49090869856eeeecfe95fb613d87 # v1
+      with:
+        username: ${{ secrets.CERTUM_USERNAME }}
+        totp_secret: ${{ secrets.CERTUM_TOTP_SECRET }}
+        totp_algorithm: ${{ needs.verify.outputs.totp_algorithm }}
+        cert_sha1: ${{ needs.verify.outputs.cert_sha1 }}
+
+    - name: Sign files with SignTool
+      shell: pwsh
+      env:
+        SIGNTOOL: ${{ steps.certum.outputs.signtool-path }}
+        THUMBPRINT: ${{ steps.certum.outputs.cert-thumbprint }}
+        DESCRIPTION: ${{ needs.verify.outputs.repository }}
+        DESCRIPTION_URL: https://github.com/${{ needs.verify.outputs.repository }}
+        FILE_LIST: ${{ steps.files.outputs.list }}
+      run: |
+        $files = @(Get-Content -Path $env:FILE_LIST)
+        & $env:SIGNTOOL sign /sha1 $env:THUMBPRINT /fd SHA256 /tr http://time.certum.pl /td SHA256 /d $env:DESCRIPTION /du $env:DESCRIPTION_URL /v @files
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "SignTool signing failed with exit code $LASTEXITCODE."
+          exit 1
+        }
+
+    - name: Verify signatures with SignTool
+      shell: pwsh
+      env:
+        SIGNTOOL: ${{ steps.certum.outputs.signtool-path }}
+        FILE_LIST: ${{ steps.files.outputs.list }}
+      run: |
+        $files = @(Get-Content -Path $env:FILE_LIST)
+        & $env:SIGNTOOL verify /pa /v @files
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "SignTool signature verification failed with exit code $LASTEXITCODE."
+          exit 1
+        }
+
+    - name: Repackage signed files into NuGet packages
+      shell: pwsh
+      env:
+        MAP: ${{ steps.files.outputs.map }}
+      run: |
+        ./code-signing/scripts/Update-SignedPackages.ps1 -MapPath $env:MAP
+
+    - name: Disconnect from SimplySign
+      if: always()
+      uses: jay0lee/certum-cloud-code-sign/teardown@a3324503499c49090869856eeeecfe95fb613d87 # v1
+
+    - name: Upload signed artifact
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: signed
+        path: ./artifact/
+        include-hidden-files: true
+        if-no-files-found: error
+        retention-days: 7

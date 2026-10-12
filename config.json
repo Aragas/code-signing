@@ -1,0 +1,192 @@
+{
+  "approvers": [
+    "Aragas"
+  ],
+  "certificate": {
+    "sha1": "",
+    "totpAlgorithm": "SHA-256"
+  },
+  "repositories": {
+    "BUTR/Bannerlord.Harmony": {
+      "events": ["push", "workflow_dispatch"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "bannerlord": ["Modules/Bannerlord.Harmony/bin/*/Bannerlord.Harmony.dll"]
+        }
+      }
+    },
+    "BUTR/Bannerlord.ButterLib": {
+      "events": ["push"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "bannerlord": ["Modules/Bannerlord.ButterLib/bin/*/Bannerlord.ButterLib*.dll"],
+          "nuget": ["*.nupkg!lib/*/Bannerlord.ButterLib.dll"]
+        }
+      }
+    },
+    "BUTR/Bannerlord.UIExtenderEx": {
+      "events": ["push", "workflow_dispatch"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "bannerlord": ["Modules/Bannerlord.UIExtenderEx/bin/*/Bannerlord.UIExtenderEx*.dll"],
+          "nuget": ["*.nupkg!lib/*/Bannerlord.UIExtenderEx.dll"]
+        },
+        ".github/workflows/publish-analyzers.yml": {
+          "nuget": [
+            "*.nupkg!analyzers/dotnet/cs/Bannerlord.UIExtenderEx.Analyzers*.dll",
+            "*.nupkg!build/Bannerlord.UIExtenderEx.Analyzers.Tasks.dll"
+          ]
+        }
+      }
+    },
+    "Aragas/Bannerlord.MBOptionScreen": {
+      "events": ["push"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/test-and-publish.yml": {
+          "bannerlord": [
+            "Modules/Bannerlord.MBOptionScreen/bin/*/MCM*.dll",
+            "Modules/Bannerlord.MBOptionScreen/bin/*/Bannerlord.MBOptionScreen*.dll"
+          ],
+          "nuget": ["*.nupkg!lib/*/MCMv5.dll"]
+        }
+      }
+    },
+    "BUTR/Bannerlord.BLSE": {
+      "events": ["push", "workflow_dispatch"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "bannerlord": [
+            "bin/*/Bannerlord.BLSE.*.exe",
+            "bin/*/Bannerlord.BLSE.*.dll"
+          ]
+        },
+        ".github/workflows/publish-nuget.yml": {
+          "nuget": [
+            "*.nupkg!lib/*/Bannerlord.BLSE.dll",
+            "*.nupkg!lib/*/Bannerlord.LauncherEx.dll"
+          ]
+        }
+      }
+    },
+    "BUTR/Bannerlord.ModuleLoader": {
+      "events": ["push", "workflow_dispatch"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "nuget": ["*.nupkg!lib/*/Bannerlord.ModuleLoader.dll"],
+          "nuget-injector": ["*.nupkg!analyzers/dotnet/cs/Bannerlord.ModuleLoader.Injector.dll"]
+        }
+      }
+    },
+    "BUTR/Bannerlord.ModuleManager": {
+      "events": ["push", "workflow_dispatch"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish-nuget.yml": {
+          "nuget": ["*.nupkg!lib/*/Bannerlord.ModuleManager*.dll"]
+        }
+      }
+    },
+    "BUTR/Bannerlord.GABS": {
+      "events": ["push"],
+      "branches": ["master"],
+      "tags": ["v*"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "bannerlord": ["Modules/Bannerlord.GABS/bin/*/Bannerlord.GABS.dll"]
+        }
+      }
+    },
+    "BUTR/BUTR.ServerTools": {
+      "events": ["push", "workflow_dispatch"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "serverjoin": ["Modules/Bannerlord.ServerJoin/bin/*/Bannerlord.ServerJoin*.dll"],
+          "serverinfo": ["Modules/Bannerlord.ServerInfo/bin/*/Bannerlord.ServerInfo*.dll"]
+        }
+      }
+    },
+    "BUTR/Bannerlord.LauncherManager": {
+      "events": ["push", "workflow_dispatch"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish-native-ts.yml": {
+          "npm": [
+            "dist/Bannerlord.LauncherManager.Native.dll",
+            "dist/launchermanager.node"
+          ]
+        },
+        ".github/workflows/publish-nuget.yml": {
+          "nuget": ["*.nupkg!lib/*/Bannerlord.LauncherManager*.dll"]
+        }
+      }
+    },
+    "BUTR/Bannerlord.BuildResources": {
+      "events": ["push", "workflow_dispatch"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "nuget": ["*.nupkg!build/Bannerlord.BuildResources.MSBuild.dll"]
+        }
+      }
+    },
+    "BUTR/Bannerlord.ChangelogParser": {
+      "events": ["push"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "nuget": ["*.nupkg!tools/*/any/Bannerlord.ChangelogParser.dll"]
+        }
+      }
+    },
+    "BUTR/BUTR.Harmony.Analyzer": {
+      "events": ["push"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "nuget": ["*.nupkg!analyzers/dotnet/cs/BUTR.Harmony.Analyzer*.dll"]
+        }
+      }
+    },
+    "BUTR/FetchBannerlordVersion": {
+      "events": ["push", "workflow_dispatch"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "nuget": [
+            "*.nupkg!lib/*/FetchBannerlordVersion*.dll",
+            "*.nupkg!tools/*/any/FetchBannerlordVersion*.dll"
+          ]
+        },
+        ".github/workflows/publish-native-ts.yml": {
+          "npm": ["dist/FetchBannerlordVersion.Native.dll"]
+        }
+      }
+    },
+    "BUTR/Bannerlord.LocalizationParser": {
+      "events": ["push"],
+      "branches": ["master"],
+      "tags": ["v*"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "nuget": ["*.nupkg!tools/*/any/Bannerlord.LocalizationParser.dll"]
+        }
+      }
+    },
+    "BUTR/Bannerlord.SteamWorkshop": {
+      "events": ["push"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "nuget": ["*.nupkg!tools/*/any/Bannerlord.SteamWorkshop.dll"]
+        }
+      }
+    }
+  }
+}
