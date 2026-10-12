@@ -86,3 +86,25 @@ jobs:
           exit 1
         }
         Write-Host "Both files are signed with $expected and timestamped"
+
+        # The package for nuget.org has no package signature, its copy for GitHub Packages has ours
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($package.FullName)
+        try { $hasSignature = $null -ne $zip.GetEntry('.signature.p7s') } finally { $zip.Dispose() }
+        if ($hasSignature) {
+          Write-Error "$($package.Name) for nuget.org has a package signature"
+          exit 1
+        }
+
+        $copy = Get-ChildItem ./test/package-signed -Filter *.nupkg | Where-Object Extension -eq '.nupkg' | Select-Object -First 1
+        if (-not $copy) {
+          Write-Error "There is no package copy for GitHub Packages in package-signed/"
+          exit 1
+        }
+        $verification = dotnet nuget verify $copy.FullName --all -v n | Out-String
+        Write-Host $verification
+        $sha256 = (Get-AuthenticodeSignature ./test/Hello.dll).SignerCertificate.GetCertHashString([System.Security.Cryptography.HashAlgorithmName]::SHA256)
+        if ($LASTEXITCODE -ne 0 -or $verification -notmatch 'Author' -or ($verification -notmatch $expected -and $verification -notmatch $sha256)) {
+          Write-Error "$($copy.Name) for GitHub Packages isn't package-signed with $expected"
+          exit 1
+        }
+        Write-Host "$($package.Name) has no package signature, package-signed/$($copy.Name) is package-signed with $expected"

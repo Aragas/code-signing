@@ -158,7 +158,7 @@ To enable signing for a new or existing repository:
 #### Standard Artifact Conventions
 
 * **`bannerlord`**: Module folder layout containing game assemblies and executables.
-* **`nuget`**: NuGet package files (`.nupkg`) produced by `dotnet pack`. Internal assemblies are signed in place, ensuring symbol packages (`.snupkg`) remain aligned.
+* **`nuget`**: NuGet package files (`.nupkg`) produced by `dotnet pack`. Internal assemblies are signed in place, ensuring symbol packages (`.snupkg`) remain aligned. Every package also gets a package-signed copy in a `package-signed/` folder next to it: push those to GitHub Packages and the originals to nuget.org, which only accepts package signatures from a certificate registered there.
 * **`npm`**: Distribution packages published to npm.
 
 ---

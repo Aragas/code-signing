@@ -214,6 +214,13 @@ jobs:
       run: |
         ./code-signing/scripts/Update-SignedPackages.ps1 -MapPath $env:MAP
 
+    - name: Create package-signed copies for GitHub Packages
+      shell: pwsh
+      env:
+        THUMBPRINT: ${{ steps.certum.outputs.cert-thumbprint }}
+      run: |
+        ./code-signing/scripts/New-SignedPackageCopies.ps1 -Root ./artifact -Thumbprint $env:THUMBPRINT
+
     - name: Disconnect from SimplySign
       if: always()
       uses: jay0lee/certum-cloud-code-sign/teardown@a3324503499c49090869856eeeecfe95fb613d87 # v1
