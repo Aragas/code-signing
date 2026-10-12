@@ -7,6 +7,15 @@
     "totpAlgorithm": "SHA-256"
   },
   "repositories": {
+    "Aragas/code-signing": {
+      "events": ["workflow_dispatch"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/test-signing.yml": {
+          "test": ["Hello.dll", "*.nupkg!lib/*/Hello.dll"]
+        }
+      }
+    },
     "BUTR/Bannerlord.Harmony": {
       "events": ["push", "workflow_dispatch"],
       "branches": ["master"],
