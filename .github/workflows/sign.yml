@@ -114,9 +114,11 @@ jobs:
     environment:
       name: Code Signing
     # Each TOTP code can only be used once; concurrency ensures one active signing operation at a time.
+    # queue: max keeps up to 100 waiting signings instead of cancelling all but the newest one
     concurrency:
       group: certum-code-signing
       cancel-in-progress: false
+      queue: max
     permissions: {}
     steps:
 

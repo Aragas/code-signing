@@ -166,6 +166,6 @@ To enable signing for a new or existing repository:
 ## Operational Notes
 
 * **Concurrency & Queueing**:
-  Because each TOTP code can only be used once and Certum does not support simultaneous sessions, the `sign` job is limited to a concurrency group of 1 (`concurrency: certum-code-signing`). If GitHub cancels a queued run when a new request arrives, `sign-certum.yml` automatically retries up to three times.
+  Because each TOTP code can only be used once and Certum does not support simultaneous sessions, the `sign` job is limited to a concurrency group of 1 (`concurrency: certum-code-signing`). With `queue: max`, up to 100 signings wait in line and run one after another instead of being cancelled, so simultaneous releases of different mods are all signed.
 * **Security & Action Pinning**:
   The Certum login action ([jay0lee/certum-cloud-code-sign](https://github.com/jay0lee/certum-cloud-code-sign)) handles the sensitive TOTP secret and credentials. All external GitHub Actions in this repository are pinned to specific, immutable commit SHAs for supply chain security. Always review upstream changes prior to updating pinned commits.
