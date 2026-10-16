@@ -136,6 +136,15 @@
         }
       }
     },
+    "BUTR/game-mount-and-blade2": {
+      "events": ["push"],
+      "branches": ["master"],
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "game-mount-and-blade2": ["Bannerlord.LobbyBridge.dll"]
+        }
+      }
+    },
     "BUTR/Bannerlord.BuildResources": {
       "events": ["push", "workflow_dispatch"],
       "branches": ["master"],
